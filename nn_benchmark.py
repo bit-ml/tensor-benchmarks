@@ -32,9 +32,9 @@ class TestNet(nn.Module):
         return outputs
 
 batch_size = {:d}
-in_size = {:d}
-out_size = {:d}
-device = '{:s}'
+in_size    = {:d}
+out_size   = {:d}
+device     = '{:s}'
 
 net = TestNet(in_size, out_size)
 inputs = torch.randn(batch_size, in_size)
@@ -42,6 +42,7 @@ inputs = torch.randn(batch_size, in_size)
 if device == 'GPU':
     net.cuda()
     inputs = inputs.cuda()
+    torch.cuda.synchronize()
 
 inputs = Variable(inputs)
 """
@@ -58,6 +59,9 @@ if device == 'GPU':
 net.zero_grad()
 criterion = nn.MSELoss()
 loss = criterion(outputs, targets)
+
+if device == 'GPU':
+    torch.cuda.synchronize()
 """
 
 if __name__ == "__main__":
@@ -70,34 +74,42 @@ if __name__ == "__main__":
         for in_size in in_sizes:
             for batch_size in batch_sizes:
                 t = timeit(
-                    "net(inputs)",
+                    ("net(inputs);\n"
+                     "if device == 'GPU':\n"
+                     "    torch.cuda.synchronize()"),
                     setup=fwd_setup.format(batch_size,in_size,out_size,device),
                     number=100
                 )
                 total += t
+                """
                 print("forward @{:s} {:4d}x({:4d} -> {:4d}) ===> {:f}".format(
                     device, batch_size, in_size, out_size, t
                 ))
+                """
         print(clr("FORWARD", "yellow") +
-              " @ {:s} ===> {:s}".format(clr(device, "yellow"),
+              " @ {:s} ===> {:s} s.".format(clr(device, "yellow"),
                                          clr("{:.4f}".format(total), "red")
               ))
 
     print("---------- BACKWARD ----------")
     for device in ["CPU", "GPU"]:
-        t = .0
+        total = .0
         for in_size in in_sizes:
             for batch_size in batch_sizes:
                 t = timeit(
-                    "loss.backward(retain_variables=True)",
+                    ("loss.backward(retain_variables=True);\n"
+                     "if device == 'GPU':"
+                     "    torch.cuda.synchronize()"),
                     setup=bwd_setup.format(batch_size,in_size,out_size,device),
                     number=100
                 )
                 total += t
+                """
                 print("backward @{:s} {:4d}x({:4d} -> {:4d}) ===> {:f}".format(
                     device, batch_size, in_size, out_size, t
                 ))
+                """
         print(clr("BACKWARD", "yellow") +
-              " @ {:s} ===> {:s}".format(clr(device, "yellow"),
+              " @ {:s} ===> {:s} s.".format(clr(device, "yellow"),
                                          clr("{:.4f}".format(total), "red")
               ))
