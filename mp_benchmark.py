@@ -43,7 +43,7 @@ def play(steps, model, allocate_on_cpu=False):
 def work_unit(pidx, steps, model):
     torch.set_num_threads(1)
     print("[worker #%d] started." % pidx)
-    print("[worker #%d] has %d MKL threads." % (pidx, torch.get_num_threads()))
+    print("[worker #%d] has %d threads." % (pidx, torch.get_num_threads()))
 
     for i in range(steps):
         play(steps, model)
@@ -61,7 +61,7 @@ if __name__ == "__main__":
     j = 3
 
     print(clr("Benchmark settings:", 'green'))
-    print("No of MKL threads available: %d" % torch.get_num_threads())
+    print("No of threads available: %d" % torch.get_num_threads())
     print(clr("No of 'game steps': %d" % steps))
     print(clr("No of agents (processes): %d" % j))
 
