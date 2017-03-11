@@ -7,14 +7,13 @@ from torch.autograd import Variable
 from termcolor import colored as clr
 
 
-class CatchNet(nn.Module):
-    """ Neural Network architecture for low-dimensional games.
-        Also good benchmark.
+class TestNet(nn.Module):
+    """ Net for low-dimensional games.
     """
     def __init__(self, input_channels, hist_len, action_no):
         self.in_channels = hist_len * input_channels
 
-        super(CatchNet, self).__init__()
+        super(TestNet, self).__init__()
         self.conv1 = nn.Conv2d(self.in_channels, 32, kernel_size=5,
                                stride=2, padding=1)
         self.conv2 = nn.Conv2d(32, 32, kernel_size=5, stride=2)
@@ -29,19 +28,15 @@ class CatchNet(nn.Module):
 
 
 def play(steps, model, allocate_on_cpu=False):
-    state = None
-    if allocate_on_cpu:
-        state = torch.rand(1, 1, 24, 24).cuda()
-        batch = torch.rand(5, 1, 24, 24).cuda()
-    else:
-        state = torch.rand(1, 1, 24, 24)
-        batch = torch.rand(5, 1, 24, 24)
+    state = torch.rand(1, 1, 24, 24)
+    batch = torch.rand(5, 1, 24, 24)
 
     model(Variable(state, volatile=True)).data.max(1)[1]
 
     model.zero_grad()
     y = model(Variable(batch)).max(1)[0]
-    loss = F.smooth_l1_loss(y, y.add(0.5))
+    t = Variable(torch.randn(y.size()))
+    loss = F.smooth_l1_loss(y, t)
     loss.backward()
 
 
@@ -59,18 +54,20 @@ def work_unit(pidx, steps, model):
 if __name__ == "__main__":
 
     torch.manual_seed(42)
+    torch.set_num_threads(1)
+    torch.set_default_tensor_type("torch.FloatTensor")
+
     steps = 10000
-    j = 4
+    j = 3
 
     print(clr("Benchmark settings:", 'green'))
     print("No of MKL threads available: %d" % torch.get_num_threads())
     print(clr("No of 'game steps': %d" % steps))
-    print(clr("No of agents/processes: %d" % j))
+    print(clr("No of agents (processes): %d" % j))
 
-    torch.set_default_tensor_type("torch.FloatTensor")
-
-    model = CatchNet(1, 1, 3).share_memory()
+    model = TestNet(1, 1, 3).share_memory()
     p_steps = int(steps / j)
+
     processes = [Process(target=work_unit, args=(p, p_steps, model))
                  for p in range(j)]
 
